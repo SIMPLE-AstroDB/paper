@@ -1,0 +1,608 @@
+\documentclass[iop,revtex4,natbib209]{emulateapj}
+
+\usepackage[english]{babel}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage[space]{grffile}
+\usepackage{latexsym}
+\usepackage{amsfonts,amsmath,amssymb}
+\usepackage{url}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyref}
+\usepackage{hyperref}
+\hypersetup{colorlinks=false,pdfborder={0 0 0},}
+\usepackage{textcomp}
+\usepackage{longtable}
+\usepackage{multirow,booktabs}
+\usepackage{pdflscape}
+\usepackage{listings}
+\usepackage{textcomp}
+\usepackage[T1]{fontenc}
+\usepackage[colorinlistoftodos,prependcaption,textsize=normal]{todonotes}
+
+\newcommand{\vdag}{(v)^\dagger}
+
+\newcommand{\truncateit}[1]{\truncate{0.8\textwidth}{#1}}
+\newcommand{\scititle}[1]{\title[\truncateit{#1}]{#1}}
+
+\usepackage{color}
+ 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{white},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\small,
+    breakatwhitespace=true,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+ 
+\lstset{style=mystyle}
+
+% \citestyle{aa}
+
+\begin{document}
+\shorttitle{astrodbkit}
+\shortauthors{Filippazzo et al.}
+\lstset{language=Python,upquote=true}
+
+\title{\MakeLowercase{\texttt{astrodbkit}}: A Python Package for Collaborative Use of SQL Databases in Astronomy}
+
+\author{Joseph C. Filippazzo\altaffilmark{1}, Paige A. Giorla Godfrey\altaffilmark{2,3,4}, David R. Rodriguez\altaffilmark{4},
+Stephanie T. Douglas\altaffilmark{5},
+Kelle L. Cruz\altaffilmark{3,4,6},
+Emily L. Rice\altaffilmark{2,3,4}}
+
+\affil{\altaffilmark{1}Space Telescope Science Institute, 3700 San Martin Dr, Baltimore, MD 21218, USA; jfilippazzo@stsci.edu}
+\affil{\altaffilmark{2}Department of Engineering Science and Physics, College of Staten Island, City University of New York, Staten Island, NY 10314, USA}
+\affil{\altaffilmark{3}The Graduate Center, City University of New York, New York, NY 10016, USA}
+\affil{\altaffilmark{4}Department of Astrophysics, American Museum of Natural History, New York, NY 10024, USA}
+\affil{\altaffilmark{5}Department of Astronomy, Columbia University, New York, NY 10027, USA}
+\affil{\altaffilmark{6}Department of Physics and Astronomy, Hunter College, City University of New York, New York, NY 10065, USA}
+
+% \date{\today}
+
+\begin{abstract}
+We present \texttt{astrodbkit}, a light-weight, well-documented Python package which enables the creation, management, and collaborative use of SQL relational databases for target-based astronomy research. We provide descriptions of the principle functions of this code, which read and write tabular data from SQL tables and incorporate more complex formats such as spectra from external files. The BDNYC Database v1.0, a public repository of substellar object data, is used as a working example. We also make file management and work flow suggestions to improve the longevity and documentation of data in both individual and collaborative research projects.
+\end{abstract}
+
+\keywords{astronomical databases: miscellaneous — brown dwarfs}
+
+\maketitle
+\section{Introduction}{\label{sec:intro}}
+\todo[inline]{Change BDNYC database running example to generic database with 5 objects:  a galaxy, a star, a cluster, a microlensing event, etc.}
+Contemporary astronomy research increasingly requires an incredible volume and diversity of data to be collected, sorted, and homogenized before scientific analysis can begin. As the efficiency and sensitivity of modern instruments grow, so too will the number of known celestial objects and the variety of their observations. While this promises to be a boon for researchers, it also poses a worsening data management problem for the astronomical community.  
+
+Obtaining publicly released data Online is easier than ever before with excellent target-based data aggregation services such as Vizier\footnote{http://vizier.u-strasbg.fr}, The NASA/IPAC Infrared Science Archive\footnote{http://irsa.ipac.caltech.edu}, The Mikulski Archive for Space Telescopes\footnote{http://archive.stsci.edu}, and the Virtual Observatory \citep{Hani14}. Many stand-alone public databases consist of impressive collections of a single type of observation, such as the SpeX Prism Library \citep{Burg14a}, the SAMI Survey Database \citep{Kons15}, and the Swift-XRT GRB Light Curve Repository \citep{Evan07}. Less common but perhaps more useful target-based databases of heterogeneous measurements also exist, such as the Binary Star Database \citep{Kova15}, HyperLEDA \citep{Maka14}, and the upcoming Starchive \citep{Tann15}, to name a few. Many of these public databases are accompanied by a robust codebase and rich Web interface which exports data to a variety of simple formats. These resources are exceptional archives of published measurements, but they contain data irrelevant to most projects and are not wholly integrated into Python code for scientific analysis.
+
+Sample construction from such public repositories often leave astronomers with disjointed data that requires a non-trivial amount of effort for ingestion into analysis codes. In collaborative projects, it also necessitates the duplication of the data retrieval process each time the shared sample is modified. As a result, astronomical data management can demand a disproportionate amount of research time for even the smallest projects without proper codification.
+
+The table format of a Structured Query Language (SQL) database naturally facilitates the division and classification of data along arbitrary parameters within a centralized framework, which can then be quickly filtered and retrieved via table and column names. Schematically, this is a logical data solution for astronomy research as an object-oriented science where a wide variety of measurements are made and attributed to a sample of point or extended sources. Many of the aforementioned public repositories employ a SQL backend, though the data is then exported by users into collections of static files which are then manually read into research scripts. 
+
+We present \texttt{astrodbkit}, a documented Python package which empowers researchers to create their own curated SQL databases with completely customizable table structures and data types, and we establish best practices for the integration of these repositories into data analysis codes. The \texttt{astrodbkit} package makes designing, populating, and interacting with astronomical databases for scientific research straightforward and efficient. This is accomplished by employing powerful SQL relational database structures using the clear syntax of the increasingly popular Python programming language \citep{Momc15}. We also present a proven protocol for the management of these files in a collaborative setting.
+
+To interface with a SQL database, a software library must be implemented. For very large collaborations working with hundreds to thousands of terabytes of data, a configured client/server SQL database engine would be ideal. The SQLite software library\footnote{https://www.sqlite.org}, with a file size limit of 140-terabytes, easily handles even the most ambitious individual or small collaboration projects in astronomy. SQLite is an open-source library which implements a transactional, serverless, self-contained SQL database that requires no configuration by its users to be accessed. The \texttt{astrodbkit} package is a Python wrapper for the SQLite language, which affords all the benefits of this querying language while demanding a minimal use of  SQLite syntax from the user.
+
+This package is well-documented, open source, and the authors welcome future developers to contribute\footnote{https://github.com/BDNYC/astrodbkit}. It was initially devised to organize spectra, photometry, and astrometry for a sample of hundreds of ultracool dwarfs, but we describe below how the work flow and software are easily applied to any astronomy subfield analyzing heterogeneous data for large numbers of objects. The BDNYC Database, a direct result of this work, is used as a working example throughout the paper.
+
+\todo[inline]{Add comparison to SQLalchemy and pydal}
+
+The paper is laid out as follows: Section \ref{sec:desc} presents the database setup instructions and principle interactions. Section \ref{sec:collaborate} describes the methods and work flow designed for collaborative database use. In Section \ref{sec:use_cases} we present a variety of astronomical data use cases and we summarize in Section \ref{sec:summary}. A description of the BDNYC Database is presented in the Appendix. 
+
+\section{Package Description}{\label{sec:desc}}
+The principle functions of \texttt{astrodbkit} are summarized below, though complete documentation generated with Sphinx\footnote{http://www.sphinx-doc.org} is provided online\footnote{http://astrodbkit.readthedocs.org}.
+
+\subsection{Setup}{\label{sec:setup}}
+
+\todo[inline]{Remove the Setup instructions and just cite the documentation.}
+The Python package can be installed in your Python path using \texttt{pip}\footnote{http://pypi.python.org/pypi/pip} by running 
+
+\begin{lstlisting}
+pip install astrodbkit
+\end{lstlisting}
+
+from the command line of a UNIX-based system. Alternatively, the code can be obtained from its Github project page\footnote{https://github.com/BDNYC/astrodbkit}. Dependencies include \texttt{astropy}\footnote{https://github.com/astropy/astropy} \citep{astr13} and \texttt{numpy}\footnote{http://www.numpy.org/} which can be installed using \texttt{pip} as well. \texttt{astrodbkit} also relies heavily on the \texttt{sqlite3} module, which creates a basic Python-SQLite interface and is contained within The Python Standard Library. The package has been tested on Python v2.7.x and v3.x.
+
+\subsection{Creating and Initializing a Database}{\label{sec:initialize}}
+Once installed, load the \texttt{astrodb} module in a Python session in the typical fashion with,
+
+\begin{lstlisting}[language=Python]
+from astrodbkit import astrodb
+\end{lstlisting}
+
+An empty SQL database with a blank SOURCES table can be created with 
+
+\begin{lstlisting}[language=Python]
+astrodb.create_db(dbpath)
+\end{lstlisting}
+
+The organization of data (known as a `schema') in the SOURCES table can vary but this table must exist and the first column name must be \textit{id} for the software to function properly. The values in this column will serve as the unique identifiers for table rows (known as `records') in the SOURCES table and will be used to attribute data in all other tables to the correct astronomical source (generally `source').
+
+To showcase schema and data structures that demonstrate the utility of the \texttt{astrodbkit} package, we will use the BDNYC Database v1.0 \citep{Fili16} as a working example throughout this paper. This database contains the astrometry, photometry, spectra, and metadata for the 198 ultracool dwarfs (spectral types later than M5) contained in the \citet{Fili15} sample. A description of the data contained in this release is presented briefly in the Appendix and fully in that paper. The BDNYC Database can be obtained from the Github project page\footnote{https://github.com/BDNYC/BDNYCdb}.
+
+To load any SQL database file with a \texttt{.db} extension, provide a file path as the argument of the \texttt{astrodb.Database()} class. This creates a database `instance', which is a memory structure that manages and serves data from the file to the user. This instance, which we will refer to as \texttt{db} throughout this paper, is created with
+
+\begin{lstlisting}[language=Python]
+db = astrodb.Database(dbpath)
+\end{lstlisting}
+
+This instance contains multiple work areas called `cursors', which allow data to be retrieved and manipulated in a variety of ways described in Section \ref{sec:query}. 
+
+Tables can be modified or created with 
+
+\begin{lstlisting}[language=Python]
+db.table(table, columns, types, constraints='', new_table=False)
+\end{lstlisting}
+
+This method accepts a table name and equal length lists of column names, data types, and SQL data constraints as its arguments. For an existing table, this can be used to add, delete, edit, or rearrange columns as well as redefine column names, data types, and constraints while preserving the table's records. To create a new table, set \texttt{new\_table=True}. The software requires that every table begin with an \textit{id} column with the \texttt{INTEGER PRIMARY KEY} data type and \texttt{UNIQUE NOT NULL} constraint. This ensures that every record in every table has a unique identifier. Any other required columns in the table should be assigned the \texttt{NOT NULL} constraint.
+
+For tables containing data that correspond to sources in the SOURCES table (hereafter `data table'), an additional \textit{source\_id} column must be included. To illustrate this structure, the schema of all data tables for the BDNYC Database are shown in Table \ref{table:data_schema}. All records in each data table contain a unique \textit{id} as well as a \texttt{NOT NULL} \textit{source\_id} that corresponds to the \textit{id} in the SOURCES table to which that measurement belongs. For example, the substellar companion HN~Peg~B might have the arbitrary \textit{id} value of 263 in the SOURCES table. The $J$-, $H$-, and $K$-band magnitudes for this object in the PHOTOMETRY table will have arbitrary \textit{id} values of, say 1045, 1046, and 1047, but the \textit{source\_id} value for all three records will be 263. Requiring a \textit{source\_id} ensures that no data table record is orphaned but also permits complex SQL queries across an arbitrary number of tables using the \texttt{db.query()} method (described in Section \ref{sec:query}.
+
+In addition to the SOURCES table, any number of tables can be created to homogenize references throughout the database (hereafter `look-up table'). Figure \ref{fig:schema_map} provides an example of this organization, where each publication is assigned a unique \texttt{id} in the PUBLICATIONS table and each instrument is assigned a unique \texttt{id} in the INSTRUMENTS table. Any other table can then reference the records in these look-up tables via \texttt{publication\_id} and \texttt{instrument\_id} columns, respectively.
+
+\subsection{Querying a Database}{\label{sec:query}}
+The \texttt{astrodbkit} package contains a suite of methods for easy interaction with a SQL database and efficient retrieval of data using Python. Some are summarized here and full descriptions can be found in the documentation.
+
+Two built-in browsing methods are provided. The first,
+
+\begin{lstlisting}[language=Python]
+db.search(criterion, table, columns='')
+\end{lstlisting}
+
+is a general search method that returns all records from the specified table that match the given criterion. It accepts a string, an integer, or a sequence of R.A. and Decl. coordinates in decimal degrees. String searches return all records with a case-insensitive partial text match in any column with the \texttt{TEXT} data type. Integer searches return all records with an exact match in any column with the \texttt{INTEGER} data type. Coordinate searches return all sources within a 1 arcminute box of the \texttt{ra} and \texttt{dec} columns if present in the given table. Specific columns may be searched by supplying the \texttt{columns} argument with a sequence of column names.
+
+Figure \ref{fig:inventory} demonstrates how the \texttt{db.search()} method can be used to search the \texttt{SOURCES} table by the string `0047', returning two records with partial text matches.
+
+The second browsing method,
+
+\begin{lstlisting}[language=Python]
+db.inventory(source_id, plot=False, fetch=False)
+\end{lstlisting}
+
+accepts an integer \texttt{id} from the SOURCES table and prints the data from all tables with that value in the \texttt{source\_id} column. Figure \ref{fig:inventory} shows an example of the output from this method, where one of the \texttt{id} values from the \texttt{db.search()} method is used to browse that source's data. Declaring \texttt{fetch=True} returns the results as a Python dictionary of \texttt{astropy} tables for all records with the specified \texttt{source\_id}. This allows all data for the given source to be retrieved with one command and then accessed using the table and column names as keys. For example, 
+
+\begin{lstlisting}[language=Python]
+data86 = db.inventory(86, fetch=True)
+phot86 = data86['photometry']
+mags86 = phot86[['band','magnitude']]
+\end{lstlisting}
+
+loads all photometric measurements for source 86 into variables for immediate analysis.
+
+To fetch data more generally, the user can pass pure SQLite queries and parameter substitutions to 
+
+\begin{lstlisting}[language=Python]
+db.query(SQL, params, fmt='array', unpack=False, export=False)
+\end{lstlisting}
+
+A simple example using the BDNYC Database is shown in Figure \ref{fig:query}, where the \texttt{parallax}, \texttt{parallax\_unc}, and \texttt{publication\_id} values for all records in the PARALLAXES table with a \texttt{source\_id} of 153 are queried. This method returns the query results as a \texttt{numpy} structured array (default), \texttt{astropy} table, or list of Python dictionaries given a \texttt{fmt} argument of `array', `table', or `dict' respectively. 
+
+The \texttt{db.query()} method only allows SQLite \texttt{SELECT} and \texttt{PRAGMA} statements for retrieval of data from the database. \texttt{SELECT} is used to retrieve rows of table data and \texttt{PRAGMA} is used to retrieve variables and schema structure from within the SQLite environment. Setting \texttt{unpack=True} transposes the results to return arrays of each column instead of arrays of each record. 
+
+A basic SQLite query specifies the columns, table, and criteria by which the database will be searched via the \texttt{SELECT}, \texttt{FROM}, and \texttt{WHERE} commands, respectively. A complete description of SQLite commands and syntax is provided in the SQLite documentation\footnote{https://www.sqlite.org/docs.html}.
+
+Any SQLite command can be used so arbitrarily complex queries may be constructed to retrieve data. An example which uses a \texttt{JOIN} command to search across data tables is 
+
+\begin{lstlisting}[language=Python]
+db.query("SELECT a.ra, a.dec, b.spectral_type FROM sources AS a JOIN spectral_types AS b ON a.id=b.source_id WHERE b.spectral_type BETWEEN 10 and 19")
+\end{lstlisting}
+
+This returns the coordinates and spectral types for all sources with a \texttt{spectral\_type} value between 10 and 19, which is the numerical spectral type range for L0-L9 dwarfs.
+
+For easier integration with Python loops, parameter substitution can be used in the above query by writing 
+
+\begin{lstlisting}[language=Python]
+db.query("SELECT a.ra, a.dec, b.spectral_type FROM sources AS a JOIN spectral_types AS b ON a.id=b.source_id WHERE b.spectral_type BETWEEN ? and ?", params=(20,29))
+\end{lstlisting}
+
+where the `?' characters in the SQLite statement are substituted with the values from the \texttt{params} argument.
+
+The \texttt{db.query()} method contains the \texttt{export} argument, which accepts a full file path as it's input. This writes the results of the query to a tab-delimited ascii file if the given extension is \texttt{.txt}. If \texttt{.vot} or \texttt{.xml} is given as the extension, a VOTable of the data is written.
+
+\subsection{Modifying a Database}{\label{sec:modify}}
+Actions to add, update, or delete data can be executed with raw SQLite commands using the method
+
+\begin{lstlisting}[language=Python]
+db.modify(SQL, params)
+\end{lstlisting}
+
+where the \texttt{params} argument accepts parameter substitutions just as in the \texttt{db.query()} method. An example that can be used to edit an arbitrary number of records in a table is
+
+\begin{lstlisting}[language=Python]
+db.modify("UPDATE spectra SET wavelength_units='um' WHERE wavelength_units IN ('microns','UM')")
+\end{lstlisting}
+
+This changes all \texttt{wavelength\_units} in the SPECTRA table that are variants of `micron' to `um'. 
+
+Data may be added to any table in the database using the method
+
+\begin{lstlisting}[language=Python]
+db.add_data(data, table, delimiter='|', bands='')
+\end{lstlisting}
+
+where \texttt{data} is a sequence of lists where the first element is comprised of the column names and subsequent elements are the corresponding values to insert into the specified columns. \texttt{table} is the name of the table to which the data should be added. For example, we can add two new records to the PARALLAXES table with
+
+\begin{lstlisting}[language=Python]
+db.add_data([['source_id', 'parallax', 'parallax_unc'], [142,34.65,1.2], [21,94.22,0.5]], 'parallaxes')
+\end{lstlisting}
+
+Alternatively, the path to an ascii file may be passed to the \texttt{data} argument. When adding data in this way, \texttt{|} (pipe) is used as the default delimiter in the style of the NASA Infrared Processing and Analysis Center (IPAC), though any character string may be specified with the \texttt{delimiter} argument. An example ascii file is shown in Figure \ref{fig:upload} and the formatting requirements are as follows:
+
+\begin{enumerate}
+
+\item The first line must be the \texttt{|}-separated column names in which the data is to be inserted, though the column names in the ascii file need not be in the same order as the table. Also, only the column names matching those in the table's schema will be added and non-matching or missing column names will be ignored. For example, the values in the \texttt{spectral\_type} column in Figure \ref{fig:upload} will not be added since that column is not present in the \texttt{PARALLAXES} table.
+
+\item If a row in the ascii file has no value for a particular column, leave the space empty. An example of this is shown in the missing \texttt{parallax\_unc} value of row 4 in Figure \ref{fig:upload}.
+
+\item Rows with missing values in columns required to be \texttt{NOT NULL} will be rejected. For example, row 5 in Figure \ref{fig:upload} will not be added to the database since it does not have a \texttt{source\_id} value required by the schema.
+
+\end{enumerate}
+
+The newly added data is then printed on screen for visual inspection in the same format as Figure \ref{fig:inventory}.
+
+The \texttt{bands} argument accepts a sequence of photometric band names to look for in the first line of the ascii file. This is to accommodate the common organization of photometric data as rows of sources with columns of magnitudes shown in Figure \ref{fig:multiband}. These data can be added to the PHOTOMETRY table with 
+
+\begin{lstlisting}[language=Python]
+db.add_data(filepath, 'photometry', bands=['2MASS_J', '2MASS_H', '2MASS_Ks'])
+\end{lstlisting}
+
+\subsection{Resolving Record Conflicts}{\label{sec:clean_up}}
+
+The uniqueness and completeness of the records in a table are essential to minimizing database file size and guarding against misplaced data. To ensure compliance, the \texttt{db.clean\_up()} method is automatically run after any changes are made to a table.
+
+This method clears the table of records that are exact duplicates or are missing values in any of the columns required to be NOT NULL by the table schema. Additionally, the table is searched for conflicting records by identifying those pairs where the \texttt{id} differs but the required columns are identical and the optional columns may or may not be identical. When a record conflict is found, the user is prompted to make a decision about how to resolve it and presented with the following choices:
+
+\begin{enumerate}
+\item Keep the first record and discard the second,
+\item Replace some or all values in the first record with values from the second,
+\item Complete the first record by filling in NULL fields with values from the second, 
+\item Keep both records, or
+\item Enter a raw SQLite command to resolve the conflict in some other way.
+\end{enumerate}
+
+An example of this interface is presented in Figure \ref{fig:conflict}. When option 4 is selected, the table name and \texttt{id} values of the two records are added to the IGNORE table so that they do not show up as conflicted when the method is run again.
+
+\subsection{Spectra Handling}{\label{sec:spectra}}
+
+To greatly reduce database file size and preserve the original structure of spectral files, \texttt{astrodbkit} retrieves data directly from ascii and Flexible Image Transport System \citep[FITS;][]{Hani01} files. The locations of these files are stored as a SPECTRUM data type, which appears as a full-text URL or absolute file path. 
+
+When data are retrieved from a column with the SPECTRUM data type, an \texttt{astrodb.Spectrum} object is returned. Like a FITS file, this object stores the data and header in \texttt{data} and \texttt{header} attributes respectively, like so 
+
+\begin{lstlisting}[language=Python]
+spec = db.query("SELECT spectrum FROM spectra WHERE id=836", fetch='one')
+w, f, e = spec.data
+header = spec.header
+\end{lstlisting}
+
+When adding spectra to a table, the location of the file must be given for a column with a SPECTRUM data type. If this URL or file path points to a FITS file, the \texttt{db.add\_data()} method parses the FITS header and attempts to auto-fill the other fields in the record. If \texttt{upload=False} (default), the method will simply store the absolute file path in the record. 
+
+Alternatively, a connection object can be created using a module like \texttt{boto3}\footnote{http://boto3.readthedocs.org/en/latest/} and then passed to the \texttt{upload} argument.  This will attempt to upload the file to the given server and store its full text URL in the record. As with any file, however, the spectrum will not be found if the file is moved without updating its location in the database.
+
+Spectral data can also be exported to an ascii file with the record metadata and header information included via the \texttt{db.output\_spectrum()} method.
+
+The SPECTRUM data type was written specifically to convert external spectra files into \texttt{numpy} wavelength, flux, and uncertainty arrays. Similarly, any other file type or format such as images or FITS data cubes can be ingested with the definition of additional SQLite converters.
+
+\section{Collaborative Tools}{\label{sec:collaborate}}
+For astronomy research done in collaborations, database access, version control, and security are essential. We outline here the class methods and a useful protocol which can be applied to the management of a shared database using \texttt{astrodbkit}.
+
+\subsection{Using a Shared Database}{\label{sec:use_shared}}
+To allow database access to collaborators, the \texttt{.db} file can be stored in a shared online repository such as Github or common directory such as Dropbox. Both solutions allow a master database version (hereafter `master') to exist which is easily or automatically updated for all users.
+
+For databases that employ a data type such as \texttt{SPECTRUM} and host the spectra files online, only the database file needs to be shared as spectra will be downloaded as needed. However, some collaborations might prefer to store the spectra locally. 
+
+Users of online repositories like Github can create a directory of spectra to accompany the database, where changes to data can be curated, documented, and version controlled. Though each user will have a different absolute path to these spectra files, the data can still be accessed by all users with the declaration of an environment variable. This takes the form of a declaration in each user's shell initialization script, such as Bash or Tcsh, designating the path to the shared spectra directory on their machine. In Bash notation:
+
+\begin{lstlisting}[language=Python]
+SPECTRA="/Users/<user>/<repo>/spectra"
+export SPECTRA
+\end{lstlisting}
+
+File paths can then be stored in the shared database as \texttt{\$SPECTRA/filename.fits} if all users define the \texttt{\$SPECTRA} environment variable on their machines.
+
+The same arrangement can be used for collaborations using Dropbox where the environment variable will point to the user's Dropbox folder instead of the local Github repository.
+
+Spectra can be added to a table as described in Section \ref{sec:modify} by users first moving the files to the appropriate shared directory. The environment variable path can then be given in any column with a \texttt{SPECTRUM} data type. Figure \ref{fig:add_spectra} shows an ascii file which can be used to add spectra to a database using an environment variable.
+
+\subsection{Modifying a Shared Database}{\label{sec:mod_shared}}
+SQL databases are binary files so version control systems like Apache Subversion (SVN), Github, or Bitbucket cannot be used to manage individual record conflicts. We replicate this functionality in Python so that an arbitrary number of users can access and safely make changes to database files.
+
+The master database should be accessible to all collaborators as described in Section \ref{sec:use_shared} and designated as read-only. To create, update, or delete records, users should create a local copy (henceforth `local') of the database file and make changes as they see fit. The conflicted local can then be merged safely into the master by providing its file path to the method
+
+\begin{lstlisting}[language=Python]
+db.merge(conflicted_db, tables='', diff_only=False)
+\end{lstlisting}
+
+After a successful merge, the local can be deleted. Figure \ref{fig:flow} is a visual representation of this proposed work flow.
+
+When \texttt{db.merge()} is called the user is prompted to enter their name and a brief description of the changes made in the merge, much like a git `commit' message. This information is documented as a new record in the CHANGELOG table along with a timestamp, the name of the machine used in the transaction, and a summary of the changes made to master. This method uses SQL ATTACH commands to access both versions of the database and create a list of the conflicting records in each table. Records unique to local are appended to the appropriate tables in master and reassigned an arbitrary \texttt{id}. The \texttt{db.clean\_up()} method is then run on the table in master as described in Section \ref{sec:clean_up}.
+
+Additionally, individual tables can be merged by passing a list of names to the \texttt{tables} argument. The differences between the table versions (called a `diff') can also be displayed with no actual merge performed by setting \texttt{diff\_only=True}.
+
+\section{Schemas for Science Use Cases}{\label{sec:use_cases}}
+The BDNYC Database provides just one example of a schema that works effectively with \texttt{astrodbkit} to organize heterogeneous, target-based data for astronomy research. Here we present a few variations on that schema which can be used as data management solutions to some other common science cases.
+
+\subsection{Non-sidereal Motion}
+Asteroids and other objects with non-sidereal motion will not have J2000 coordinates for the \texttt{ra} and \texttt{dec} columns of the SOURCES table. In such a case, the user could create a separate POSITIONS table with \texttt{id}, \texttt{source\_id}, \texttt{ra}, \texttt{dec}, and \texttt{datetime} columns. Each detection can then be entered as a separate record. The path of source 723 through the sky can then be reconstructed with 
+
+\begin{lstlisting}[language=Python]
+db.query("SELECT ra, dec, datetime FROM positions WHERE source_id=723")
+\end{lstlisting}
+
+\subsection{Extended Sources}
+Spectroscopy of point sources is straightforward in the sense that the coordinates at which the spectrum was taken is coincident with the position of the source. However, extended sources such as galaxies commonly have spectra taken at various positions with techniques such as integral field unit spectroscopy. This requires positional information with each spectral record.
+
+The schema for such a SPECTRA table could look just like the one presented in Table \ref{table:data_schema} but with \texttt{ra}, \texttt{dec} fields added, indicating the R.A. and Decl. of each lenslet center.
+
+\subsection{Multiplicity}
+For multiple systems, data might need to be kept for the group of gravitationally bound objects as well as each component. This could be problematic for unresolved systems or resolved systems of small separation where the \texttt{ra} and \texttt{dec} values are identical. 
+
+One solution is provided in the SOURCES table schema in Table \ref{table:data_schema}. The \texttt{components} column lists the \texttt{source\_id} of each component or is NULL for single objects. Conversely, the \texttt{companions} column lists the \texttt{source\_id} of each bound companion if any. For example, the SOURCES table would have a record for the young binary system TWA 27 as well as its components TWA 27A and TWA 27B, whose relevant details may look like
+
+\begin{lstlisting}[language=TeX]
+id    names    components  companions
+----  -------  ----------  ----------
+1225  TWA 27   1352,1353   ...
+1352  TWA 27A  ...         1353
+1353  TWA 27B  ...         1352
+\end{lstlisting}
+
+\subsection{Transient Phenomena}
+The PHOTOMETRY table shown in Table \ref{table:data_schema} can easily be modified to analyze photometric variability or transit light curves by adding a \texttt{datetime} column to the schema. The user could extract the old schema, add the new column and data type, and then recreate the table with
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+fields, types = db.query("PRAGMA table_info(photometry)", unpack=True)[1:3]
+fields = np.append(fields, 'datetime')
+types = np.append(types, 'TEXT')
+db.table('PHOTOMETRY', fields, types)
+\end{lstlisting}
+
+This keeps all existing table data intact and adds an empty column named \texttt{datetime}. A query to then retrieve the time-resolved $J$-band data of source 37 is
+
+\begin{lstlisting}[language=Python]
+db.query("SELECT magnitude, datetime FROM photometry WHERE source_id=37 AND band='J'")
+\end{lstlisting}
+
+\subsection{Image Analysis}
+Section \ref{sec:spectra} describes how spectra are stored in files outside the SQL database and a custom SPECTRUM data type is used to convert the file location into a 2D spectrum. Similarly, a custom IMAGE data type can be created which renders the image from an external FITS file data cube. Adding this data type would require modification of the \texttt{astrodb} module, which could then be issued as a pull request on Github for distribution to the astronomy community.
+
+\section{Summary}{\label{sec:summary}}
+We have presented a Python package called \texttt{astrodbkit} which enables creation, management, and smooth integration of SQL relational databases into astronomy research. The development process is public and chronicled on Github\footnote{https://github.com/BDNYC/astrodbkit} where we highly encourage code collaboration. Detailed documentation of the data structures and functions available in this package are provided on the Github project page. Throughout the paper, we have used the BDNYC Database v1.0 as a working example and proof of concept.
+
+We described the primary functions of the software package and provided several examples which demonstrate how data can be managed and seamlessly incorporated into Python codes used for scientific analysis. This includes database creation, table management, data import and export, search functions, and data queries and modification.
+
+Most importantly, this package establishes a code base and work flow for the collaborative use of SQL databases with minimal knowledge of the SQLite language. We have outlined and provided examples of a robust and flexible data management protocol for collaborations of arbitrary size and scope. It is our hope that \texttt{astrodbkit} not only be adopted, but also further developed by the research community to confront the ever evolving landscape of data in astronomy.
+
+\section*{Acknowledgments}
+The authors would like to thank Dan Feldman for his work on the first incarnation of the BDNYC Database and Mason Brown, the CUNY Academic Works science librarian, for his assistance in making our spectra truly open to the public. We would also like to thank Will Saunders' documentation efforts and the data management work of James Crook, Stephany Loja, and Arielle Roane. We would also like to thank the BDNYC group for database testing, Joseph A. Filippazzo for his database expertise, and Charles Liu for helpful discussions. This material is based upon work supported by the National Science Foundation under Grant No. 1211568 and 1313132. Support for this project was also provided by a PSC-CUNY Award, jointly funded by The Professional Staff Congress and The City University of New York, and NASA Astrophysics Data Analysis Program (ADAP) award 11- ADAP11-0169.
+
+\appendix
+
+\section{The BDNYC Database}{\label{sec:appendix}}
+The initial release of The BDNYC Database contains the astrometry, photometry and spectra for the 198 objects in the \citet{Fili15} sample. The data for each low-mass star, brown dwarf, planetary mass object, or multiple system in this sample is distributed across five data tables. See Table \ref{table:data_schema} for a complete description of the fields and data types in each. 
+
+An additional five look-up tables are used to homogenize metadata across all data tables. For example, the PUBLICATIONS look-up table creates an arbitrary but unique \texttt{id} for each publication which makes the reference for each record unambiguous and immune to string formatting issues. This value is stored under the \texttt{publication\_id} field in all other tables. Similarly, an \texttt{id} from the INSTRUMENTS table is stored under the \texttt{instrument\_id} field in all other tables, and so on with the other look up tables. Table \ref{table:data} shows a summary of the number of records contained in each table.
+
+All spectral data in the BDNYC Database is stored on the CUNY Academic Works\footnote{http://academicworks.cuny.edu}, a public online repository for research documents. This service of the CUNY Libraries is self-described as "dedicated to collecting and providing access to the research, scholarship and creative work of the City University of New York." This configuration was chosen so that the database could be shared publicly while keeping the file size manageable (v1.0 is 282MB with spectra arrays included and only 1.5MB with externally hosted spectra) and the data persistent. A caveat is that an Internet connection is necessary when retrieving spectra.
+
+To increase public accessibility of the BDNYC Database we have also built a Web application\footnote{http://database.bdnyc.org} which uses \texttt{astrodbkit} to serve data from the most recent release of the BDNYC Database. This application allows the user to write and submit SQL queries to the various tables in the database, utilize the \texttt{db.search()} and \texttt{db.inventory()} functionality of \texttt{astrodbkit}, and plot spectra interactively. This facilitates quick exploration of the BDNYC Database.
+
+This database is intended to be a public repository for observations and measurements of substellar objects. Therefore, users are strongly encouraged to contribute their data sets and add new tables as needed. This can be accomplished via the Github repository at https://github.com/BDNYC/BDNYCdb. Users are invited to fork this repository and use the \texttt{astrodbkit} package to make changes. A pull request can then be issued via Github so changes can incorporated. A new version of the database will then be issued and distributed via the channels described in this paper.
+
+% BEGIN TABLES ============================================
+
+\begin{deluxetable}{llll}
+\tablecaption{Data Table Schemas for the BDNYC Database \label{table:data_schema}}
+\tablehead{Table & Column & Data Type & Description}
+\startdata
+SOURCES & \texttt{id} & INTEGER & The unique identifier for the source\\
+& \texttt{ra} & REAL & The J2000 R.A. of the source in decimal hours \\
+& \texttt{dec} & REAL & The J2000 Decl. of the source in decimal degrees \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table for the source discovery paper \\
+& \texttt{shortname} & TEXT & A short identifier for the object using the hhmm+ddmm R.A. and Decl. \\
+& \texttt{designation} & TEXT & The 2MASS designation of the source \\
+& \texttt{companions} & TEXT & The comma-separated \texttt{source\_id}s for gravitationally bound sources \\
+& \texttt{components} & TEXT & The comma-separated \texttt{source\_id}s which comprise this multiple system \\
+& \texttt{comments} & TEXT & Additional comments about the source \\
+\hline\vspace{-0.1cm}\\
+PHOTOMETRY & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{source\_id} & INTEGER & The \texttt{id} from the SOURCES table to which the record belongs \\
+& \texttt{band} & TEXT & The name of the band (e.g. `2MASS\_J', `MKO\_H', `WISE\_W1', etc.) \\
+& \texttt{magnitude} & REAL & The magnitude in the given photometric band \\
+& \texttt{magnitude\_unc} & REAL & The uncertainty in the magnitude or `null' for an upper limit \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table \\
+& \texttt{telescope\_id} & INTEGER & An \texttt{id} from the TELESCOPES table \\
+& \texttt{instrument\_id} & INTEGER & An \texttt{id} from the INSTRUMENTS table \\
+& \texttt{comments} & TEXT & Additional comments about the data \\
+\hline\vspace{-0.1cm}\\
+SPECTRA & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{source\_id} & INTEGER & The \texttt{id} from the SOURCES table to which the record belongs \\
+& \texttt{spectrum} & SPECTRUM & The URL or file path for the spectrum \\
+& \texttt{wavelength\_units} & TEXT & The units of the wavelength array \\
+& \texttt{flux\_units} & TEXT & The units of the flux and uncertainty arrays \\ 
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table \\
+& \texttt{telescope\_id} & INTEGER & An \texttt{id} from the TELESCOPES table \\
+& \texttt{instrument\_id} & INTEGER & An \texttt{id} from the INSTRUMENTS table \\
+& \texttt{mode\_id} & INTEGER & An \texttt{id} from the MODES table \\
+& \texttt{comments} & TEXT & Additional comments about the data \\
+\hline\vspace{-0.1cm}\\
+SPECTRAL\_TYPES & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{source\_id} & INTEGER & The \texttt{id} from the SOURCES table to which the record belongs\\
+& \texttt{spectral\_type} & REAL & The numerical spectral type from 0-32, corresponding to M0-Y2\\
+& \texttt{spectral\_type\_unc} & REAL & The uncertainty in the numerical spectral type \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table \\
+& \texttt{gravity} & TEXT & The gravity suffix, e.g. $\beta /\gamma$ or `INT-G/VL-G'\\
+& \texttt{prefix} & TEXT & The spectral type prefix, e.g. `sd' or `\textgreater ' \\
+& \texttt{suffix} & TEXT & The spectral type suffix, e.g. `p' or `:' \\
+& \texttt{regime} & TEXT & `OPT' or `IR' indicating the spectral type wavelength regime \\
+& \texttt{comments} & TEXT & Additional comments about the data \\
+\hline\vspace{-0.1cm}\\
+PARALLAXES & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{source\_id} & INTEGER & The \texttt{id} from the SOURCES table to which the record belongs\\
+& \texttt{parallax} & REAL & The trigonometric parallax measurement \\
+& \texttt{parallax\_unc} & REAL & The uncertainty in the parallax \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table \\
+& parallax\_units & TEXT & The units of the parallax \\
+& \texttt{comments} & TEXT & Additional comments about the data \enddata
+\end{deluxetable}
+
+\begin{deluxetable}{llll}
+\tablecaption{Look-up Table Schemas for the BDNYC Database \label{table:look-up_schema}}
+\tablehead{Table & Column & Data Type & Description}
+\startdata
+PUBLICATIONS & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{shortname} & TEXT & A short identifier for the publication \\
+& \texttt{bibcode} & TEXT & The NASA ADS bibcode \\
+& \texttt{doi} & TEXT & The Digital Object Identifier (DOI) for the publication \\
+& description & TEXT & A short description of the publication \\
+\hline\vspace{-0.1cm}\\
+TELESCOPES & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{name} & TEXT & The telescope name \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table \\
+\hline\vspace{-0.1cm}\\
+INSTRUMENTS & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{name} & TEXT & The instrument name \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table \\
+\hline\vspace{-0.1cm}\\
+MODES & id & INTEGER & The unique identifier for the record \\
+& \texttt{name} & TEXT & The mode name \\
+& \texttt{publication\_id} & INTEGER & An \texttt{id} from the PUBLICATIONS table\\
+\hline\vspace{-0.1cm}\\
+IGNORE & \texttt{id} & INTEGER & The unique identifier for the record \\
+& \texttt{id1} & INTEGER & The \texttt{id} of the first record \\
+& \texttt{id2} & INTEGER & The \texttt{id} of the second record \\
+& \texttt{table\_name} & TEXT & The name of the table
+\enddata
+\end{deluxetable}
+
+\begin{deluxetable*}{ll}
+\tablecaption{Data Summary for the BDNYC Database v1.0 \label{table:data}}
+\tablehead{Table Name & Number}
+\startdata
+\multicolumn{2}{c}{Data tables}\\
+\hline\vspace{-0.1cm}\\
+SOURCES & 198\\
+PHOTOMETRY & 2613\\
+PARALLAXES & 225\\
+SPECTRA & 375\\
+SPECTRAL\_TYPES & 314\\
+\hline\vspace{-0.15cm}\\
+\multicolumn{2}{c}{Lookup tables}\\
+\hline\vspace{-0.1cm}\\
+MODES & 7\\
+INSTRUMENTS & 43\\
+TELESCOPES & 33\\
+PUBLICATIONS & 532
+\enddata
+\end{deluxetable*}
+
+% END TABLES ==============================================
+
+% BEGIN FIGURES ===========================================
+
+\begin{figure*}
+\begin{center}
+\epsscale{1}
+\plotone{f1.eps}
+\caption{\label{fig:schema_map}Each table is required to have the first column be the unique integer \texttt{id}. Data tables point to records in the SOURCES table via the \texttt{source\_id} column (solid blue lines). Look-up tables can be created for any records with coincident data, such as PUBLICATIONS (dotted red lines) and INSTRUMENTS (dashed purple lines), so that the database is not subject to string formatting errors.}
+
+\end{center}
+\end{figure*}
+
+\begin{figure}
+\begin{center}
+\epsscale{1.2}
+\plotone{f2.eps}
+\caption{\label{fig:inventory}To search for records and check the data inventory of sources, the \texttt{db.search()} and \texttt{db.inventory()} methods can be used. The first two lines of the example show how \texttt{astrodbkit} is imported and the database is initialized given a file path. Any table can be searched by providing a string, integer, or coordinates to the \texttt{db.search()} method along with a table name. In this example we search the \texttt{SOURCES} table for records that contain the string '0047' and two are found: one with the \texttt{shortname} '0251+0047' and another with '0047+6803'. We can then see all the data that is available for a given source by passing the \texttt{id} from the SOURCES table (in this case 1722) to the \texttt{db.inventory()} method.}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\epsscale{1.2}
+\plotone{f3.eps}
+\caption{\label{fig:query}The \texttt{db.query()} method accepts a SQLlite query as its argument. The results are returned as a \texttt{numpy} structured array, \texttt{astropy} table, or list of Python dictionaries given a \texttt{fmt} argument of 'array', 'table', or 'dict'.}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\epsscale{0.7}
+\plotone{f4.eps}
+\caption{\label{fig:upload}An example ascii file of values to be added to the PARALLAXES table using the \texttt{db.add\_data()} method. Rows with missing required columns will be rejected (line 5) and columns not present in the given table (column 5) will be ignored.}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\epsscale{1}
+\plotone{f5.eps}
+\caption{\label{fig:multiband}An example ascii file with columns of all photometric band names in the first row rather than \texttt{band} and \texttt{magnitude} columns. This data is added to the PHOTOMETRY table with \texttt{db.add\_data('/path/to/file.txt', 'photometry', bands=['2MASS\_J','2MASS\_H','2MASS\_Ks'])}.}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\epsscale{0.7}
+\plotone{f6.eps}
+\caption{\label{fig:add_spectra}An example ascii file which shows how environment variables can be used to add spectra to a table with the \texttt{SPECTRUM} data type using the \texttt{db.add\_data()} method.}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\epsscale{1.2}
+\plotone{f7.eps}
+\caption{\label{fig:conflict}When \texttt{db.clean\_up()} is run, the specified table is searched for records whose columns required to be \texttt{NOT NULL} are identical. If any matches are found, the user is prompted to make a decision about each potential conflict. In this example the method is run on the \texttt{PARALLAXES} table where the required \texttt{source\_id} and \texttt{parallax} values for records 377 and 578 are the same. Entering 'help' at the prompt displays all the options available to the user. When 'Enter' is pressed in this example, record 578 is deleted from the table and either the next potential record conflict is presented or the table clean up is complete.}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\plotone{f8.eps}
+\caption{\label{fig:flow}A flow chart demonstrating how \texttt{astrodbkit} can be used to safely maintain a shared database. A master copy is kept in a shared directory or repository, a local copy is created and edited, and then the \texttt{db.merge()} method is used to securely update master. Rectangles represent actions, diamonds represent decisions that are made by the user, the triangle represents a database merge, and the `master' and `local' shapes represent databases. The vertical dashed line shows how the master database is protected from the actions taken by the user to modify a local copy until the merge is executed.}
+\end{center}
+\end{figure}
+
+% END FIGURES ==============================================
+
+\bibliographystyle{aj}
+\bibliography{biblio.bib}
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
